@@ -1,0 +1,2125 @@
+---
+title: "Marques_et_al_2021"
+output:
+  github_document:
+    html_preview: false
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  comment = "#>",
+  fig.path = "README/README-"
+)
+```
+
+### NF1 regulates mesenchymal glioblastoma plasticity and aggressiveness through the AP-1 transcription factor FOSL1
+
+Carolina Marques, Thomas Unterkircher, Paula Kroon, Barbara Oldrini, Annalisa Izzo, Yuliia Dramaretska, Roberto Ferrarese, Eva Kling, Oliver Schnell, Sven Nelander, Erwin F. Wagner, Latifa Bakiri, Gaetano Gargiulo, Maria Stella Carro and Massimo Squatrito. *eLife* (in press)
+
+```{r }
+library(tidyverse)
+library(readxl)
+library(GSVA)
+library(statmod)
+library(Biobase)
+library(ggpubr)
+library(ggrepel)
+library(ggridges)
+library(cowplot)
+library(ggplotify)
+library(reshape2)
+library(survival)
+library(survminer)
+library(limma)
+library(chromVAR)
+# library(biomaRt)
+library(pheatmap)
+library(clusterProfiler)
+library(SummarizedExperiment)
+library(ggraph)
+library(karyoploteR)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(grid)
+# library(RTN)
+# library(snow)
+library(devtools)
+library(RColorBrewer)
+
+source('./Scripts/plotqPCR.R', echo=F)
+source('./Scripts/replotGSEA.R', echo=F)
+source('./Scripts/ggplotLimdil.R', echo=F)
+source('./Scripts/survPlot.R', echo=F)
+source('./Scripts/statePlot.R', echo=F)
+source('./Scripts/emaplot.R', echo=F)
+source('./Scripts/plotDeviationTsne2.R', echo=F)
+source('./Scripts/tracksPlot.R', echo=F)
+set.seed(12345) #seed for reproducibility of the analysis
+symnum.args <-  list(cutpoints = c(0, 0.001, 0.01, 0.05, 1), 
+                     symbols = c("***", "**", "*","ns")) # symbols for pvalues
+black_red <- c("#000000","#E41A1C")
+black_red_green <- c("#000000","#E41A1C","#4DAF4A")
+gray_black <- c("#808080","#000000")
+paired_black_red <- c("#000000","#666666","#E41A1C","#FB9A99")
+font_size <- font("xy.text", size = 8) + font("xlab", size = 10) + font("ylab", size = 10) + font("title",size = 10)
+```
+## Data
+```{r Data, echo = TRUE}
+BTSCs_exprs <- read.delim("./Data/BTSCs_exprs.txt")
+BTSCs_subtypes <- read.delim("./Data/BTSCs_subtypes.txt")
+gsea_report_all_analysis <- read.delim("./Data/gsea_report_all_analysis.txt")
+qPCR_data <- read.delim("./Data/qPCR_data_2021.txt",
+                         stringsAsFactors=FALSE)
+tcga_cgga_data <- read.delim("./Data/TCGA_CGGA_data_tableS4.txt")
+figure_S1C_data <- read.delim("./Data/Figure_S1C.txt")
+figure_S1D_data <- read.delim("./Data/Figure_S1D.txt")
+figure_S1E_data <- read.delim("./Data/Figure_S1E.txt")
+figure_S2B_data <- read.delim("./Data/Figure_S2B.txt")
+figure_S2C_data <- read.delim("./Data/Figure_S2C.txt")
+load("./Data/Figure_4_data.RData")
+figure_4C_data <- read.delim("./Data/Figure_4C.txt")
+figure_4F_data <- read.delim("./Data/Figure_4F.txt",
+                             comment.char="#", 
+                             stringsAsFactors=FALSE)
+gene_signatures <- read.delim("./Data/gene_signatures_2021.txt") %>%
+  .[-1,] %>% # exclude 1st row
+  as.list(.) %>% # convert to a list
+  lapply(., function(x) x[!is.na(x)]) # remove NA
+figure_5A_data <- read.delim("./Data/Figure_5A.txt")
+figure_5B_data <- read.delim("./Data/Figure_5B.txt") %>% 
+  mutate(Phase = factor(Phase, levels = c("G1","S","G2")))
+figure_5C_data <- read.delim("./Data/Figure_5C.txt") 
+figure_5D_expr <- read.delim("./Data/NSCs_Kras_sgFosl1_exprs.txt",
+                             sep = "\t", stringsAsFactors = F)
+figure_5D_pdata <- read.delim("./Data/NSCs_Kras_sgFosl1_pdata.txt",
+                              sep = "\t", stringsAsFactors = F)
+stem_diff_genes <- read.delim("./Data/stem_diff_genes.txt", sep = "\t")
+figure_5E_data <- read.delim("./Data/Figure_5E.txt")
+figure_6D_data <- read.delim("./Data/Figure_6D.txt") %>% 
+  mutate(Area_scaled = Area/1e07)
+figure_7C_data <- read.delim("./Data/Figure_7C.txt")
+figure_7D_data <- read.delim("./Data/Figure_7D.txt")
+figure_7E_data <- read.delim("./Data/Figure_7E.txt")
+figure_7F_data <- read.delim("./Data/Figure_7F.txt", 
+                             stringsAsFactors=FALSE)
+figure_7F_annotation <- read.delim("./Data/Figure_7F_annotation.txt", 
+                             stringsAsFactors=FALSE)
+figure_7G_data <- read.delim("./Data/Figure_7G.txt", 
+                             stringsAsFactors=FALSE)
+figure_S7A_data <- read.delim("./Data/Figure_S7A.txt")
+figure_S8B_data <- read.delim("./Data/Figure_S8B.txt")
+figure_S8C_data <- read.delim("./Data/Figure_S8C.txt")
+figure_S8D_data <- read.delim("./Data/Figure_S8D.txt")
+figure_S8G_data <- read.delim("./Data/Figure_S8G.txt")
+figure_S8I_data <- read.delim("./Data/Figure_S8I.txt")
+figure_S8K_data <- read.delim("./Data/Figure_S8K.txt")
+```
+
+## Figure 1
+```{r Figure 1a}
+################################################################
+# Data Processing:
+# 1. Data were downloaded from GEO
+# 2. Common probes among platform were selected
+# 3. Subtypes were calculated using `runSsGSEAwithPermutation` with 1000 permutation (set.seed(12345))
+# 4. Each dataset was normalized (mean = 0, sd = 1) 
+# 5. Datasets were then combined in one single dataset 
+
+BTSCs_subtypes  <-  BTSCs_subtypes %>%
+  mutate(concordant_subtype = case_when(Richards_2021 == "INJ" & Wang_2017 != "MES" ~ "NO",
+                                        TRUE ~ "YES"))
+row.names(BTSCs_subtypes) <- BTSCs_subtypes$accession_ID
+
+BTSCs_eset <- ExpressionSet(assayData = as.matrix(BTSCs_exprs),
+                                 phenoData=as(BTSCs_subtypes, "AnnotatedDataFrame"))
+BTSCs_eset$Group <- ifelse(pData(BTSCs_eset)$Wang_2017 == "MES", "MES", "Non-MES")
+
+###############################################################
+# PCA
+pdata  <-  pData(BTSCs_eset) 
+edata <-  exprs(BTSCs_eset)
+pc  <-  prcomp(t(edata))
+pc_matrix <- data.frame(pc$x)
+percentage <- round(pc$sdev^2/ sum(pc$sdev^2) * 100, 2)
+percentage <- paste(colnames(pc_matrix), "(", 
+                    paste(as.character(percentage), "%", ")", sep=""),sep = "") 
+
+pc_matrix$Wang_2017 <- pdata$Wang_2017
+pc_matrix$Richards_2021 <- pdata$Richards_2021
+pc_matrix$Dataset <- pdata$dataset
+pc_matrix$Concordant <- pdata$concordant_subtype
+
+figure_1a_left <- pc_matrix %>% 
+  ggscatter(x = "PC2", y = "PC1", size = 0.8,
+            color = "Wang_2017", shape = "Dataset",
+            palette = "Set1", ellipse = TRUE,
+            xlab = percentage[2],
+            ylab = percentage[1],
+            title = "Wang_2017",
+            legend = "right") + 
+  font_size + 
+  scale_shape_manual(values=seq(0,7))
+
+figure_1a_left <- ggpar(figure_1a_left, font.legend = c(8,"plain","black"))
+
+figure_1a_right <- pc_matrix %>% 
+  ggscatter(x = "PC2", y = "PC1", size = 0.8,
+            color = "Richards_2021", shape = "Dataset",
+            palette = brewer.pal(9, "Set1")[4:5], ellipse = TRUE,
+            xlab = percentage[2],
+            ylab = percentage[1],
+            title = "Richards_2021",
+            legend = "right") + 
+  font_size + rremove("ylab") +
+  scale_shape_manual(values=seq(0,7))
+
+figure_1a_right <- ggpar(figure_1a_right, font.legend = c(8,"plain","black"))
+
+figure_1a <- ggarrange(figure_1a_left,figure_1a_right, nrow = 1, common.legend = T)
+figure_1a
+```
+
+## Figure 1b
+```{r Figure 1b}
+###############################################################
+# DEG analysis
+# limma
+BTSCs_eset_sel <- BTSCs_eset[, BTSCs_eset$concordant_subtype == "YES"]
+sml <- ifelse(pData(BTSCs_eset_sel)[,"Group"] == "MES","G1","G0")
+fl <- as.factor(sml)
+BTSCs_eset_sel$description <- fl
+design <- model.matrix(~ description + 0 + dataset, BTSCs_eset_sel) # include dataset to correct for batch effect
+fit <- lmFit(BTSCs_eset_sel, design)
+cont.matrix <- makeContrasts(descriptionG1-descriptionG0, levels=design)
+fit2 <- contrasts.fit(fit, cont.matrix)
+fit2 <- eBayes(fit2, 0.01)
+
+combo_eset_tT <- topTable(fit2, adjust="fdr", 
+                          sort.by="logFC",  
+                          p.value = 0.05, 
+                          number=100) %>%
+  rownames_to_column(var = "Gene.Symbol") %>%
+  arrange(-logFC)
+
+combo_eset_tT_all <- topTable(fit2, adjust="fdr", 
+                              sort.by="logFC", 
+                              p.value = 0.05, 
+                              n=Inf) %>%
+  rownames_to_column(var = "Gene.Symbol") %>%
+  arrange(-logFC)
+
+# heatmap
+combo_eset_expr <- exprs(BTSCs_eset_sel)[combo_eset_tT$Gene.Symbol,]
+combo_eset_annotation <- pData(BTSCs_eset_sel)[,c("dataset", "Wang_2017", "Richards_2021")]
+names(combo_eset_annotation) <- c("Dataset", "Wang_2017", "Richards_2021")
+combo_colors <- list(Dataset = brewer.pal(8, "Set2")[1:6],
+                     Wang_2017 = brewer.pal(9, "Set1")[1:3],
+                     Richards_2021 = brewer.pal(9, "Set1")[4:5])
+names(combo_colors$Dataset) <- levels(factor(combo_eset_annotation$Dataset))
+names(combo_colors$Wang_2017) <- levels(factor(combo_eset_annotation$Wang_2017))
+names(combo_colors$Richards_2021) <- levels(factor(combo_eset_annotation$Richards_2021))
+
+figure_1b <- pheatmap(t(combo_eset_expr), 
+                      annotation_row = combo_eset_annotation,
+                      scale = "column", 
+                      clustering_distance_rows = "correlation",
+                      show_rownames = F,
+                      show_colnames = T,
+                      fontsize_col = 5, 
+                      border_color = NA,
+                      cluster_col = F, cluster_rows  = T,
+                      annotation_colors = combo_colors,
+                      # cutree_rows = 3,
+                      color = colorRampPalette(c("steelblue","white","red"))(100),
+                      silent = T)
+figure_1b
+```
+
+## Figure 1c
+```{r Figure 1c}
+# ################################################################
+# # Master regulator analysis
+# # NOT RUN !# It's a bit heavy computationally, not needed for the github upload
+# ################################################################
+# TF_DatabaseExtract_v_1_01 <- read.delim("./Data/TF_DatabaseExtract_v_1_01.txt",sep = "\t")
+# tf_genes <- subset(TF_DatabaseExtract_v_1_01, 
+#                    TF_DatabaseExtract_v_1_01$`Is.TF.` == "Yes" &
+#                      TF_DatabaseExtract_v_1_01$`HGNC.symbol` %in% featureNames(BTSCs_eset_sel))
+# 
+# 
+# # ################################################################
+# # Prepare input for RTN
+# gexp = exprs(BTSCs_eset_sel) # a named gene expression matrix (gexp)
+# pheno = as.numeric(combo_eset_tT_all[,"logFC"]) # a named numeric vector with differential gene expression data (pheno)
+# names(pheno) <- combo_eset_tT_all$Gene.Symbol
+# hits = combo_eset_tT_all$Gene.Symbol # a character vector with genes differentially expressed (hits)
+# tfs_all = tf_genes$`HGNC.symbol` # a named vector with transcriptions factors (tfs)
+# names(tfs_all) <- tfs_all
+# rowAnnotation <- data.frame(PROBEID = featureNames(BTSCs_eset),SYMBOL = featureNames(BTSCs_eset))
+# row.names(rowAnnotation) <- rowAnnotation$SYMBOL
+# 
+# # Create transcriptional network
+# # http://bioconductor.org/packages/release/bioc/vignettes/RTN/inst/doc/RTN.html
+# #Input 1: 'expData', a named gene expression matrix (samples on cols)
+# #Input 2: 'regulatoryElements', a named vector with TF ids
+# #Input 3: 'rowAnnotation', an optional data frame with gene annotation
+# dt4rtn2 <- list(gexp = gexp, 
+#                 gexpIDs = NULL, 
+#                 pheno = pheno, 
+#                 phenoIDs = NULL, 
+#                 hits = hits, 
+#                 tfs = tfs_all)
+# tfs <- dt4rtn2$tfs
+# rtni2 <- tni.constructor(expData = dt4rtn2$gexp, 
+#                          regulatoryElements = dt4rtn2$tfs, 
+#                          rowAnnotation = rowAnnotation)
+# # run parallel version with SNOW package!
+# options(cluster=makeCluster(3, "SOCK"))
+# rtni2 <- tni.permutation(rtni2, verbose = T, 
+#                          pValueCutoff = 0.05, 
+#                          nPermutations = 1000)
+# rtni2 <- tni.bootstrap(rtni2, verbose = T)
+# rtni2 <- tni.dpi.filter(rtni2,verbose = T)
+# 
+# # Perform MRA
+# #Input 1: 'object', a TNI object with a pre-processed transcripional network
+# #Input 2: 'phenotype', a named numeric vector, usually with log2 differential expression values (limma toptable)
+# #Input 3: 'hits', a character vector of gene ids considered as hits (significant DEG)
+# #Input 4: 'phenoIDs', an optional data frame with anottation used to aggregate genes in the phenotype
+# rtna2 <- tni2tna.preprocess(object=rtni2,
+#                             phenotype=dt4rtn2$pheno,
+#                             hits=dt4rtn2$hits)
+# 
+# # The tna.mra function takes the TNA object and returns the results of the Master Regulator Analysis (RMA) (Carro et al. 2010)
+# # over a list of regulons from a transcriptional network (with multiple hypothesis testing corrections).
+# # The MRA computes the overlap between the transcriptional regulatory unities (regulons) and the input signature genes
+# # using the hypergeometric distribution (with multiple hypothesis testing corrections).
+# 
+# rtna2 <- tna.mra(rtna2)
+# rtna2 <- tna.gsea1(rtna2, 
+#                    nPermutations=1000, 
+#                    pValueCutoff = 1) # Measure one tailed enrichment score for all the MR
+# rtna2 <- tna.gsea2(rtna2, nPermutations=1000)
+# stopCluster(getOption("cluster"))
+# mra <- tna.get(rtna2, what="mra", ntop = -1) # get MRA results
+# # gsea1 <- tna.get(rtna2, what="gsea1",ntop = -1) # get EScore and pvalues from GSEA
+# # mra_gsea1_results <- full_join(mra,gsea1, by = c("Regulon"))
+# # gsea2 <- tna.get(rtna2, what="gsea2")
+# 
+# ## Figure_1c <- RTN analysis
+# tna.plot.gsea1(rtna2, labPheno="abs(log2) diff. expression",
+#                tfs=mra$Regulon[1:10], plotpdf = FALSE,
+#                regulon.order = "score")
+
+```
+
+## Figure 1d
+```{r Figure 1d}
+#############################################
+BTSCs_df <- merge(pData(BTSCs_eset_sel),
+                       t(exprs(BTSCs_eset_sel)), 
+                       by = "row.names")
+
+sub_comparisons <- list( c("MES", "PN"), 
+                         c("MES", "CL"), 
+                         c("CL", "PN"))
+
+figure_1d_left <- BTSCs_df %>%
+  ggboxplot(x = "Wang_2017", y = "FOSL1",
+            color = "Wang_2017", 
+            palette = brewer.pal(9, "Set1")[1:3],
+            outlier.size = 0, outlier.stroke = 0, 
+            add = "jitter", add.params = list(shape = "dataset"),
+            ylab = "FOSL1 mRNA (A.U.)", 
+            ylim = c(-2,4.5),
+            legend = "right") + font_size + 
+  theme(legend.position = "none") +
+  rremove("xlab") +
+  scale_shape_manual(values = seq(0,7)) +
+  stat_compare_means(comparisons = sub_comparisons, 
+                     symnum.args =  symnum.args, 
+                     method = "t.test")
+figure_1d_left <- ggpar(figure_1d_left, font.legend = c(8,"plain","black"))
+
+# #t-test
+# BTSCs_df %>%
+#    compare_means(FOSL1 ~ Wang_2017,
+#                  comparisons = sub_comparisons, 
+#                  symnum.args =  symnum.args, 
+#                  method = "t.test",
+#                  data = .)
+# 
+# #Anova with Tukey post-hoc
+# BTSCs_df %>%
+#   aov(FOSL1 ~ Wang_2017, data = .) %>%
+#   TukeyHSD() %>% .$Wang_2017
+
+figure_1d_right <- BTSCs_df %>%
+  ggboxplot(x = "Richards_2021", y = "FOSL1",
+            color = "Richards_2021", 
+            palette = brewer.pal(9, "Set1")[4:5],
+            outlier.size = 0, outlier.stroke = 0,
+            add = "jitter", add.params = list(shape = "dataset"),
+            ylab = "FOSL1 mRNA (A.U.)", 
+            ylim = c(-2,4.5),
+            legend = "right") + font_size + 
+  rremove("xlab") + rremove("ylab") +
+  theme(legend.position = "none") +
+  scale_shape_manual(values = seq(0,7)) +
+  stat_compare_means(comparisons = list(c("DEV", "INJ")),
+                     symnum.args =  symnum.args, 
+                     label.y = 4,
+                     method = "t.test")
+
+figure_1d_right <- ggpar(figure_1d_right, font.legend = c(8,"plain","black"))
+
+figure_1d <- plot_grid(figure_1d_left, figure_1d_right, nrow = 1, rel_widths = c(1, 0.7))
+figure_1d
+```
+
+## Figure 1e
+```{r Figure 1e}
+mol_comparison <- list(c("IDHmut-codel","IDHmut-non-codel"),
+                       c("IDHmut-codel","IDHwt"),
+                       c("IDHmut-non-codel","IDHwt"))
+
+figure_1e <- tcga_cgga_data %>%
+  group_by(dataset) %>%
+  mutate(FOSL1 = scale(FOSL1),
+         IDH_codel.subtype = factor(IDH_codel.subtype,
+         levels = c("IDHmut-codel","IDHmut-non-codel","IDHwt"))) %>%
+  filter(., IDH_codel.subtype!=is.na(IDH_codel.subtype)) %>%
+  ggboxplot(x = "IDH_codel.subtype", y = "FOSL1",
+            outlier.size = 0, outlier.stroke = 0,
+            add = "jitter", 
+            add.params = list(size = 0.6, alpha = 0.3),
+            facet.by = "dataset", ylim = c(-3,6),
+            ylab = "FOSL1 mRNA (A.U.)") + 
+  font_size + rremove("xlab") +
+  scale_x_discrete(labels=function(x){sub("\\-", "\n", x)}) + 
+  stat_compare_means(method = "t.test", comparison = mol_comparison, 
+                     label.y = c(3.25,4.25,5.5),label = "p.signif",
+                     symnum.args = symnum.args)
+
+# # To get the statistic
+# tcga_cgga_data %>%
+#   dplyr::filter(., IDH_codel.subtype!=is.na(IDH_codel.subtype)) %>%
+#   compare_means(FOSL1 ~ IDH_codel.subtype, method = "t.test", data = .,symnum.args = symnum.args, group.by = "dataset")
+# 
+# #Anova with Tukey post-hoc
+# tcga_cgga_data %>%
+#   dplyr::filter(., dataset == "CGGA", IDH_codel.subtype!=is.na(IDH_codel.subtype)) %>%
+#   mutate(FOSL1 = scale(FOSL1)) %>% 
+#   aov(FOSL1 ~ IDH_codel.subtype, data = .) %>% 
+#   TukeyHSD() %>% .$IDH_codel.subtype
+# 
+# tcga_cgga_data %>%
+#   dplyr::filter(., dataset == "TCGA", IDH_codel.subtype!=is.na(IDH_codel.subtype)) %>%
+#   mutate(FOSL1 = scale(FOSL1)) %>% 
+#   aov(FOSL1 ~ IDH_codel.subtype, data = .) %>% 
+#   TukeyHSD() %>% .$IDH_codel.subtype
+
+figure_1e
+```
+
+## Figure 1f
+```{r Figure 1f}
+# Panel 1f, survival
+figure_1f_left <- survPlot(subset(tcga_cgga_data, dataset == "CGGA")) + 
+  ggtitle("CGGA")
+figure_1f_right <- survPlot(subset(tcga_cgga_data, dataset == "TCGA")) + 
+  ggtitle("TCGA")
+
+figure_1f <- plot_grid(figure_1f_left$plot, figure_1f_right$plot)
+
+figure_1f
+```
+
+## Figure 1-figure supplement 1a (Figure S1a)
+```{r Figure 1-figure supplement 1a}
+# Expression data of the top 10 TF
+figure_s1_data <- BTSCs_df %>%
+  .[,c("dataset","Group", c("FOSL1","VDR","SP100","ELF4", "BNC2", 
+                            "OLIG2","SOX11","ASCL1","SALL2","POU3F3"))] %>% 
+  reshape2::melt(.)
+
+figure_s1a <- figure_s1_data %>%
+  ggplot(aes(x = Group, y = value)) +
+  geom_boxplot(outlier.size = 0, outlier.stroke = 0) +
+  geom_jitter(position = position_jitter(width = .25), 
+              size = 2, alpha = 0.75,
+              aes(color=Group, shape = dataset)) +
+  ylim(-3,5) +
+  scale_color_manual(values = c("#F5AE26", "#EA549D")) + 
+  labs(y = "mRNA (A.U.)", x = "Subtype", 
+       color = "Subtype", shape = "Dataset") +
+  scale_shape_manual(values=seq(0,7)) + theme_bw() + 
+  stat_compare_means(symnum.args = symnum.args, label.y = 4, label.x = 1.4,
+                     method = "t.test", label = "p.signif") + 
+facet_wrap(~variable,nrow = 2,ncol = 5) 
+
+figure_s1a
+```
+
+## Figure 1-figure supplement 1b (Figure S1b)
+```{r Figure 1-figure supplement 1b}
+# figure_s1b <- tna.plot.gsea2(rtna2, file="tna_gsea2", labPheno="abs(log2) diff. expression", tfs= c("FOSL1","VDR","OLIG2","SOX11"))
+```
+
+## Figure 1-figure supplement 1c (Figure S1c)
+```{r Figure 1-figure supplement 1c}
+# figure s1c left  Richards GSCs ssGSEA score subtypes
+row.names(figure_S1C_data) <- figure_S1C_data$Sample
+subtypes_annotation <- figure_S1C_data[,c("Richards_2021","Wang_2017")]
+subtypes_gsea_colors <- list(Wang_2017 = brewer.pal(8, "Set1")[1:3],
+                    Richards_2021 = brewer.pal(9, "Set1")[4:5])
+names(subtypes_gsea_colors$Wang_2017) <- levels(factor(subtypes_annotation$Wang_2017))
+names(subtypes_gsea_colors$Richards_2021) <- levels(factor(subtypes_annotation$Richards_2021))
+
+figure_s1c_left  <- pheatmap(t(figure_S1C_data[2:6]), 
+         annotation_col = subtypes_annotation,
+         scale = "row", 
+         clustering_distance_cols = "correlation",
+         show_colnames = F, fontsize_col = 5, 
+         border_color = NA,
+         cluster_col = T, cluster_rows  = F,
+         annotation_colors = subtypes_gsea_colors,
+         color = colorRampPalette(c("steelblue","white","red"))(100),
+         silent = T)
+
+# figure s1c right FOSL1 expression Richards GSCs
+figure_s1c_right_a <- figure_S1C_data %>%
+  subset(., Wang_2017 != is.na(Wang_2017)) %>% 
+  ggboxplot(x = "Wang_2017", y = "FOSL1",
+            color = "Wang_2017", 
+            palette = brewer.pal(9, "Set1")[1:3],
+            outlier.size = 0, outlier.stroke = 0, 
+            add = "jitter", ylim = c(5,18),
+            ylab = "FOSL1 mRNA (A.U.)", 
+            legend = "right") + 
+  theme(legend.position = "none") + font_size + ggtitle("") +
+  rremove("xlab") +
+  stat_compare_means(comparisons = list( c("MES", "PN"), 
+                                         c("MES", "CL"), 
+                                         c("CL", "PN")), 
+                     symnum.args =  symnum.args, 
+                     method = "t.test")
+figure_s1c_right_a <- ggpar(figure_s1c_right_a, font.legend = c(8,"plain","black")) 
+
+figure_s1c_right_b <- figure_S1C_data %>%
+  subset(., Wang_2017 != is.na(Wang_2017)) %>% 
+  ggboxplot(x = "Richards_2021", y = "FOSL1",
+         color = "Richards_2021", 
+         palette = brewer.pal(9, "Set1")[4:5],
+         outlier.size = 0, outlier.stroke = 0, 
+         add = "jitter",ylim = c(5,18),
+         ylab = "FOSL1 mRNA (A.U.)", 
+         legend = "right") + font_size + ggtitle("") +
+  rremove("xlab") + rremove("ylab") +
+  theme(legend.position = "none") +
+  stat_compare_means( comparisons = list(c("DEV", "INJ")), 
+                     symnum.args =  symnum.args, 
+                     method = "t.test")
+figure_s1c_right_b <- ggpar(figure_s1c_right_b, font.legend = c(8,"plain","black"))
+
+figure_s1c <- plot_grid(figure_s1c_left$gtable,
+                        figure_s1c_right_a, 
+                        figure_s1c_right_b, 
+                        nrow = 1, rel_widths = c(3,1, 0.7))
+figure_s1c
+```
+
+## Figure 1-figure supplement 1d (Figure S1d)
+```{r Figure 1-figure supplement 1d}
+# figure s1d ssGSEA score Richards GSCs scRNAseq
+figure_S1D_data_long <-  pivot_longer(data = figure_S1D_data[,-1],
+                                 cols = Richards_DEV_2021:Wang_CL_2017)
+
+figure_s1d <- figure_S1D_data_long %>%
+  mutate(name = factor(name, levels=c("Wang_CL_2017","Wang_PN_2017","Wang_MES_2017",
+                                      "Richards_DEV_2021", "Richards_INJ_2021"))) %>%
+  ggplot(aes(x = X, y = Y)) + 
+  geom_point(aes(color = value), alpha = 0.75, size = 0.5) + 
+  labs(x="PC1",y="PC2") + 
+  scale_colour_gradient2(low="blue", midpoint = 0.35, high="red") + 
+  theme_bw() +
+  facet_wrap(~name, nrow = 1)
+
+figure_s1d
+```
+
+## Figure 1-figure supplement 1e (Figure S1e)
+```{r Figure 1-figure supplement 1e}
+# figure s1e Top 10 TFs Richards GSCs scRNAseq
+figure_S1E_data_long <- pivot_longer(data = figure_S1E_data[,-1],cols = FOSL1:POU3F3) %>% 
+  mutate(name = factor(name, levels = c("FOSL1","VDR","SP100","ELF4", "BNC2", "OLIG2","SOX11","ASCL1","SALL2","POU3F3")),
+         group = case_when(name %in% c("FOSL1","VDR","SP100","ELF4", "BNC2") ~ 'MES',
+                           name %in% c("OLIG2","SOX11","ASCL1","SALL2","POU3F3") ~ 'Non-MES'))
+
+# two-dimensional state plot
+figure_s1e <- figure_S1E_data_long %>%
+  ggplot(aes(x = X, y = Y)) +
+  geom_point(aes(color = value), alpha = 0.75, size = 0.5) + 
+  labs(x="PC1",y="PC2") + 
+  theme_bw() +
+  facet_wrap(.~name, nrow = 2) + 
+  scale_color_gradient2(low = "white", mid = "#FFFFCC", high = "red") 
+
+figure_s1e
+```
+
+## Figure 1-figure supplement 2a (Figure S2a)
+```{r Figure 1-figure supplement 2a}
+# figure s2a FOSL1 expression CGGA and TCGA stratified by subtypes
+sub_comparisons <- list( c("MES", "PN"), 
+                         c("MES", "CL"), 
+                         c("CL", "PN"))
+
+figure_s2a_left <- tcga_cgga_data %>%
+  .[!is.na(.$Wang_2017),] %>% 
+  group_by(dataset) %>%
+  mutate(FOSL1 = scale(FOSL1),
+         Wang_2017 = factor(Wang_2017, levels= c("CL","MES","PN"))) %>%
+  filter(., IDH_codel.subtype == "IDHwt") %>%
+  ggboxplot(x = "Wang_2017", y = "FOSL1",
+            color = "Wang_2017", 
+            palette = brewer.pal(9, "Set1")[1:3],
+            outlier.size = 0, outlier.stroke = 0, 
+            add = "jitter",
+            add.params = list(size = 0.8, alpha = 0.5),
+            facet.by = "dataset", ylim = c(-3,4),
+            ylab = "FOSL1 mRNA (A.U.)") + 
+  font_size + rremove("xlab") +
+  stat_compare_means(comparisons = sub_comparisons, 
+                     symnum.args =  symnum.args, 
+                     method = "t.test")
+
+figure_s2a_left <- ggpar(figure_s2a_left, font.legend = c(8,"plain","black"))
+
+# #Anova with Tukey post-hoc
+# tcga_cgga_data %>%
+#   .[!is.na(.$Wang_2017),] %>% 
+#   group_by(dataset) %>%
+#   mutate(FOSL1 = scale(FOSL1),
+#          Wang_2017 = factor(Wang_2017, levels= c("CL","MES","PN"))) %>%
+#   filter(., IDH_codel.subtype == "IDHwt") %>% 
+#   aov(FOSL1 ~ Wang_2017, data = .) %>%
+#   TukeyHSD() %>% .$Wang_2017
+
+figure_s2a_right <- tcga_cgga_data %>%
+  .[!is.na(.$Richards_2021),] %>% 
+  group_by(dataset) %>%
+  mutate(FOSL1 = scale(FOSL1),
+         Richards_2021 = factor(Richards_2021, levels= c("DEV","INJ"))) %>%
+  filter(., IDH_codel.subtype == "IDHwt") %>%
+  ggboxplot(x = "Richards_2021", y = "FOSL1",
+            color = "Richards_2021", 
+            palette = brewer.pal(9, "Set1")[4:5],
+            outlier.size = 0, outlier.stroke = 0, 
+            add = "jitter",
+            add.params = list(size = 0.8, alpha = 0.5),
+            facet.by = "dataset", ylim = c(-3,4),
+            ylab = "FOSL1 mRNA (A.U.)") + 
+  font_size + rremove("xlab") +
+  stat_compare_means(comparisons = list(c("DEV", "INJ")),
+                     symnum.args =  symnum.args, 
+                     method = "t.test")
+
+figure_s2a_right <- ggpar(figure_s2a_right, font.legend = c(8,"plain","black"))
+
+figure_s2a <- plot_grid(figure_s2a_left, figure_s2a_right)
+figure_s2a
+```
+
+## Figure 1-figure supplement 2b (Figure S2b)
+```{r Figure 1-figure supplement 2b}
+# figure s2b ssGSEA score Neftel tumor scRNAseq
+figure_S2B_data_long <- pivot_longer(data = figure_S2B_data[,-1],
+                                    cols = Richards_DEV_2021:Wang_CL_2017)
+figure_s2b <- figure_S2B_data_long %>%
+  mutate(name = factor(name, levels=c("Wang_CL_2017","Wang_PN_2017","Wang_MES_2017",
+                                      "Richards_DEV_2021","Richards_INJ_2021"))) %>%
+  ggplot(aes(x = X, y = Y)) + 
+  geom_point(aes(color = value), alpha = 0.75, size = 0.5) + 
+  ylim(-2.75,2.75) + xlim(-2.75,2.75)+
+  geom_hline(yintercept = 0, size = 0.25) + 
+  geom_vline(xintercept = 0, size = 0.25) +
+  labs(x="",y="") + 
+  scale_colour_gradient2(low="blue", midpoint = 0.5, high="red") + 
+  theme_bw() +
+  theme(axis.ticks.length=unit(0, "cm"), axis.text.x=element_blank(), 
+        axis.text.y=element_blank()) +
+  facet_wrap(.~name, nrow =1)
+
+figure_s2b
+```
+
+## Figure 1-figure supplement 2c (Figure S2c)
+```{r Figure 1-figure supplement 2c}
+# figure s2c Top 10 TFs Neftel tumor scRNAseq, hexbins on scaled expression
+figure_S2C_data_long <- pivot_longer(data = figure_S2C_data[,-1],cols = FOSL1:POU3F3) 
+
+figure_s2c <- figure_S2C_data_long %>%
+  mutate(name = factor(name, levels= c("FOSL1","VDR","SP100","ELF4", "BNC2", "OLIG2","SOX11","ASCL1","SALL2","POU3F3"))) %>% 
+  ggplot(aes(x = X, y = Y, z = value)) +
+  stat_summary_hex(bins=100, fun = "median") + 
+  ylim(-2.75,2.75) + xlim(-2.75,2.75)+
+  geom_hline(yintercept = 0, size = 0.25) + 
+  geom_vline(xintercept = 0, size = 0.25) +
+  labs(x="",y="") + 
+  scale_fill_gradientn(colours = c(brewer.pal(n = 8, name = "YlOrRd"))) + 
+  theme_bw() +
+  theme(axis.ticks.length=unit(-0.1, "cm"), axis.text.x=element_blank(), 
+        axis.text.y=element_blank()) +
+  facet_wrap(.~name,nrow = 2,ncol = 5)
+
+figure_s2c
+```
+
+## Figure 2a 
+```{r Figure 2a}
+# select only TCGA IDH-wt samples
+tcga_idwt_samples <- as.character(
+  filter(tcga_cgga_data, dataset == "TCGA" & 
+           IDH_codel.subtype == "IDHwt")$Sample)
+
+# ssGSEA values
+tumor_gsva_annotation <- tcga_cgga_data %>% 
+  filter(dataset == "TCGA" & IDH_codel.subtype == "IDHwt") %>% 
+  .[ ,c("Sample", "Wang_2017","Richards_2021","NF1_status")] %>% 
+  mutate(NF1_status = factor(NF1_status),
+         Wang_2017 = factor(Wang_2017),
+         Richards_2021 = factor(Richards_2021)) %>% 
+  arrange(Richards_2021, Wang_2017, NF1_status) %>% 
+  column_to_rownames("Sample")
+
+tumor_gsva_colors <- list(Wang_2017 = brewer.pal(9, "Set1")[1:3],
+                          Richards_2021 = brewer.pal(9, "Set1")[4:5],
+                          NF1_status = c("#FC8D62","#66C2A5"))
+names(tumor_gsva_colors$Wang_2017) <- levels(tumor_gsva_annotation$Wang_2017)
+names(tumor_gsva_colors$Richards_2021) <- levels(tumor_gsva_annotation$Richards_2021)
+names(tumor_gsva_colors$NF1_status) <- levels(tumor_gsva_annotation$NF1_status)
+
+tumor_data <- tcga_cgga_data %>% 
+  filter(dataset == "TCGA" & IDH_codel.subtype == "IDHwt") %>% 
+  .[,c("Sample","Developmental_ssGSEA","Injury_ssGSEA",
+       "Classical_ssGSEA","Mesenchymal_ssGSEA","Proneural_ssGSEA")] %>% 
+  column_to_rownames("Sample")
+
+tumor_data <- tumor_data[row.names(tumor_gsva_annotation),]
+figure_2a <- pheatmap(t(tumor_data),
+                      scale = "row",
+                      cluster_cols = F,
+                      cluster_rows = F,
+                      annotation_col = tumor_gsva_annotation,
+                      show_colnames = F, fontsize_row = 8,
+                      border_color = NA,
+                      annotation_colors = tumor_gsva_colors,
+                      clustering_distance_cols = "correlation",
+                      color = colorRampPalette(c("steelblue","white","red"))(100),
+                      silent = T)
+
+figure_2a
+```
+
+## Figure 2b 
+```{r Figure 2b}
+tumor_NF1_status <- tumor_gsva_annotation %>%
+  mutate(concordant_subtype = case_when(Richards_2021 == "INJ" & Wang_2017 != "MES" ~ "NO",
+                                        Wang_2017 == "MES" & Richards_2021 != "INJ" ~ "NO",
+                                        TRUE ~ "YES")) %>% 
+  filter(concordant_subtype == "YES") %>% 
+  mutate(MES_status = ifelse(Richards_2021 == "INJ","MES","Non-MES")) 
+
+fisher <- fisher.test(table(tumor_NF1_status$NF1_status,
+                            tumor_NF1_status$MES_status),
+                      alternative="two.sided")
+
+figure_2b_data <- table(tumor_NF1_status$MES_status, tumor_NF1_status$NF1_status) %>% 
+  reshape2::melt(., varnames = c("Subtype_group","NF1_status"), id.vars = "Subtype_group")
+
+figure_2b <- figure_2b_data %>% 
+  group_by(Subtype_group) %>%
+  mutate(perc = round(value/sum(value),2)*100) %>% 
+  ggplot(aes(x = Subtype_group, y = perc, 
+             fill = NF1_status, cumulative = TRUE)) +
+  geom_col(width = 0.75) +  ylab("percentage") +
+  theme_pubr(legend = "none") + font_size +
+  scale_fill_manual(values = c("#FC8D62","#66C2A5")) +
+  geom_text(aes(label = paste0(perc,"%")),
+            position = position_stack(vjust = 0.5), 
+            color = "white", size = 3.5) +
+  ggtitle(sprintf("Fisher's exact test:\n P value = %s", 
+                  signif(fisher$p.value,digits = 4)))
+
+figure_2b <- ggpar(figure_2b, font.main = c(8,"black","plain"))
+
+figure_2b
+```
+
+## Figure 2c 
+```{r Figure 2c}
+idhwt_nf1_data <- tcga_cgga_data %>%  
+  filter(.,dataset == "TCGA" & 
+           IDH_codel.subtype == "IDHwt" & 
+           NF1_status!=is.na(NF1_status)) %>%
+  mutate(NF1_status = factor(NF1_status, levels = c("NotAltered","Altered")))
+
+# Panel 2c, NF1_status
+figure_2c <- idhwt_nf1_data %>%
+  ggboxplot(x = "NF1_status", y = "FOSL1",
+            add = "jitter",
+            outlier.size = 0, outlier.stroke = 0,
+            add.params = list(color = "NF1_status",
+                              size = 0.8, alpha = 0.5),
+            palette = "Set2", legend = "none", title ="",
+            ylab = "FOSL1 mRNA (log2)",
+            xlab = "NF1 status") + font_size +
+  stat_compare_means(method = "t.test", label = "p.format") 
+ 
+# idhwt_nf1_data %>%
+#   compare_means(FOSL1 ~ NF1_status, method = "t.test", 
+#                 data = .,symnum.args = symnum.args)
+
+figure_2c
+```
+
+## Figure 2d 
+```{r Figure 2d}
+# Panel 2d, NF1mRNA correlation
+figure_2d <- idhwt_nf1_data %>%
+  ggscatter(x = "NF1", y = "FOSL1", color = "NF1_status",
+            palette = "Set2", alpha = 0.5, size = 0.8,
+            add = "reg.line", # Add regression line
+            add.params = list(color = "black", fill = "gray"),
+            conf.int = TRUE, # Add confidence interval
+            cor.coef = TRUE,
+            legend = "none", title = "",
+            cor.coeff.args = list(method = "pearson", 
+                                  label.x = 8, label.y = 3.5, 
+                                  label.sep = "\n"),
+            ylab = "FOSL1 mRNA (log2)",
+            xlab = "NF1 mRNA (log2)") + font_size
+
+# idhwt_nf1_data %>%  do(tidy(cor.test(.$NF1, .$FOSL1)))
+
+figure_2d
+```
+
+## Figure 2e 
+```{r Figure 2e}
+figure_2e <- qPCR_data %>% 
+  plotqPCR(panel = "2E",
+           normalizer = "18s",
+           ref_group = "Ctrl",
+           levels =c("Ctrl","GRD"),
+           pvalue = T,
+           facet_by = "Cells",
+           legend = "none", palette = black_red,
+           ylim = c(0,1.25),
+           ylab = "FOSL1 mRNA (A.U.)")
+
+figure_2e
+```
+
+## Figure 2g 
+```{r Figure 2g}
+figure_2g <- gsea_report_all_analysis %>%
+  filter(Analysis == "BTSC233_NF1_GRD") %>%
+  ggplot(aes(x = reorder(NAME,NES), y = NES)) +
+  geom_col(aes(fill = TYPE, color =`FDR.q.val`<0.05), width = 0.75) +
+  coord_flip() + xlab("") +
+  theme_cowplot() + theme(axis.text.y=element_text(size = 7)) +
+  scale_fill_manual(values = c("#F5AE26", "#EA549D")) +
+  scale_color_manual(values = c("gray","black"))
+
+figure_2g
+```
+
+## Figure 2h 
+```{r Figure 2h}
+figure_2h <- qPCR_data %>%
+  plot_normqPCR(panel = "2H", 
+                normalizer = "18s",
+                ref_group = "shCtrl",
+                levels = c("shCtrl","shNF1_1","shNF1_4","shNF1_5"),
+                pvalue = T, 
+                facet_by = "Cells",
+                legend = "none", 
+                palette = "Set1", 
+                ylim = c(0,2.5),
+                ylab = "FOSL1 mRNA  (A.U.)")
+
+figure_2h
+```
+
+## Figure 2i 
+```{r Figure 2i}
+figure_2i <- gsea_report_all_analysis %>%
+  filter(Analysis == "BTSC3021_shNF1") %>%
+  ggplot(aes(x = reorder(NAME,NES), y = NES)) +
+  geom_col(aes(fill = TYPE, color =`FDR.q.val`<0.05), width = 0.75) +
+  coord_flip() + xlab("") +
+  theme_cowplot() + theme(axis.text.y=element_text(size = 7)) +
+  scale_fill_manual(values = c("#F5AE26", "#EA549D")) +
+  scale_color_manual(values = c("gray","black"))
+
+figure_2i
+```
+
+## Figure 2j 
+```{r Figure 2j}
+figure_2j_left_a <- qPCR_data %>% 
+  filter(Cells == "BTSC 232" & Gene %in% c("18s","FOSL1")) %>% 
+  plotqPCR(panel = "2J",
+           normalizer = "18s", 
+           ref_group = "Ctrl+Ctrl",
+           levels = c("Ctrl+Ctrl", "Ctrl+FOSL1",
+                      "GRD+Ctrl","GRD+FOSL1"),
+           pvalue = F, legend = "none",
+           palette = paired_black_red, 
+           ylab = NULL)
+
+figure_2j_right_a <- qPCR_data %>% 
+  filter(Cells == "BTSC 232" & Gene != "FOSL1") %>% 
+  plotqPCR(panel = "2J",
+           normalizer = "18s", 
+           ref_group = "Ctrl+Ctrl",
+           levels = c("Ctrl+Ctrl", "Ctrl+FOSL1",
+                      "GRD+Ctrl","GRD+FOSL1"),
+           pvalue = F, legend = "right",
+           palette = paired_black_red, ylab = NULL) +
+  rremove("ylab")
+
+figure_2j_left_b <- qPCR_data %>%
+  filter(Cells == "BTSC 233" & Gene %in% c("18s","FOSL1")) %>%
+  plotqPCR(panel = "2J",
+           normalizer = "18s",
+           ref_group = "Ctrl+Ctrl",
+           levels = c("Ctrl+Ctrl", "Ctrl+FOSL1",
+                      "GRD+Ctrl","GRD+FOSL1"),
+           pvalue = F, legend = "none",
+           palette = paired_black_red, ylab = NULL)
+
+figure_2j_right_b <- qPCR_data %>%
+  filter(Cells == "BTSC 233" & Gene != "FOSL1") %>%
+  plotqPCR(panel = "2J",
+           normalizer = "18s",
+           ref_group = "Ctrl+Ctrl",
+           levels = c("Ctrl+Ctrl", "Ctrl+FOSL1",
+                      "GRD+Ctrl","GRD+FOSL1"),
+           pvalue = F, legend = "right",
+           palette = paired_black_red, ylab = NULL) +
+  rremove("ylab")
+
+figure_2j <- ggarrange(figure_2j_left_a, figure_2j_right_a,
+                       figure_2j_left_b, figure_2j_right_b,
+                       widths = c(0.35,1,0.35,1), nrow = 1,
+                      legend = 'right',common.legend = T)
+  
+figure_2j
+```
+
+## Figure 2-figure supplement 1d (Figure S3)
+```{r Figure 2-figure supplement 1d}
+figure_S3d <- as.ggplot(~ replotGSEA(path = "./Data/GSEA/Freiburg_BTSC233_NF1_GRD.Gsea.1557494919416", 
+                                     gene.set = "BILD_HRAS_ONCOGENIC_SIGNATURE", class.name = "NF1-GRD positively correlated"))
+
+figure_S3d
+```
+
+## Figure 2-figure supplement 2b (Figure S4b)
+```{r Figure 2-figure supplement 2b}
+figure_S4b <- as.ggplot(~ replotGSEA(path = "./Data/GSEA/Freiburg_BTSC233_NF1_GRD.Gsea.1612877445786", 
+                                     gene.set = "FOSL1_REGULON", 
+                                     class.name = "NF1-GRD positively correlated"))
+
+figure_S4b
+```
+
+## Figure 2-figure supplement 2c (Figure S4c)
+```{r Figure 2-figure supplement 2c}
+figure_S4c_left <-  qPCR_data %>% 
+  filter(Cells == "BTSC 233") %>%
+  plot_normqPCR(panel = "S4C", 
+                ref_group = "Ctrl", 
+                pvalue = T, 
+                facet_by = "Cells",
+                palette = black_red, 
+                ylim = c(0,1.75), 
+                pvalues_y = 1.6)
+
+figure_S4c_right <- qPCR_data %>%
+  filter(Cells == "BTSC 232") %>%
+  plot_normqPCR(panel = "S4C", 
+                ref_group = "Ctrl", 
+                pvalue = T, 
+                facet_by = "Cells", 
+                ylab = FALSE,
+                palette = black_red, 
+                ylim = c(0,1.75), 
+                remove_y = T, 
+                pvalues_y = 1.6)
+
+figure_S4c <- ggarrange(figure_S4c_left,
+                        figure_S4c_right, 
+                        ncol = 2, 
+                        common.legend = T, 
+                        widths = c(2.25,2),
+                        legend = "right")
+
+figure_S4c
+```
+
+## Figure 2-figure supplement 2f (Figure S4f)
+```{r Figure 2-figure supplement 2f}
+figure_S4f <- as.ggplot(~ replotGSEA(path = "./Data/GSEA/Freiburg_BTSC3021_NF1_shNF1.Gsea.1612877131389", 
+                                     gene.set = "FOSL1_REGULON", 
+                                     class.name = "shNF1 positively correlated"))
+figure_S4f
+```
+
+## Figure 2-figure supplement 2g (Figure S4g)
+```{r Figure 2-figure supplement 2g}
+figure_S4g_left <-  qPCR_data %>% 
+filter(Cells == "BTSC 3021") %>%
+  plot_normqPCR(panel = "S4G", 
+                ref_group = "shCtrl", 
+                pvalue = F, 
+                facet_by = "Cells",
+                legend = "right", 
+                palette = brewer.pal(4,"Set1")[c(1,2,4)], 
+                ylim = c(0,3), 
+                pvalues_y = 2.75)
+
+figure_S4g_right <-  qPCR_data %>% 
+filter(Cells == "BTSC 3047") %>%
+  plot_normqPCR(panel = "S4G", 
+                ref_group = "shCtrl", 
+                pvalue = F, 
+                facet_by = "Cells",
+                ylab = FALSE, 
+                legend = "right",
+                palette = brewer.pal(4,"Set1")[c(1,3,4)], 
+                ylim = c(0,3), 
+                remove_y = T, 
+                pvalues_y = 2.75)
+
+figure_S4g <- ggarrange(figure_S4g_left,
+                        figure_S4g_right, 
+                        ncol = 2, 
+                        common.legend = T, 
+                        widths = c(2.25,2), 
+                        legend = "right")
+
+figure_S4g
+```
+
+## Figure 2-figure supplement 2h (Figure S4h)
+```{r Figure 2-figure supplement 2h}
+figure_S4h <- qPCR_data %>%
+  plot_normqPCR(panel = "S4H", 
+                ref_group = "Ctrl", 
+                pvalue = T, 
+                facet_by = "Cells",
+                legend = "right", 
+                palette = black_red, 
+                ylim = c(0,1.75), 
+                pvalues_y = 1.6)
+
+figure_S4h
+```
+
+## Figure 2-figure supplement 2i (Figure S4i)
+```{r Figure 2-figure supplement 2i}
+figure_S4i <- qPCR_data %>%
+  plot_normqPCR(panel = "S4I", 
+                ref_group = "shCtrl", 
+                pvalue = T, 
+                facet_by = "Cells",
+                legend = "right", 
+                palette = "Set1", 
+                pvalues_y = 5.5, 
+                ylim = c(0,6))
+
+figure_S4i
+```
+
+## Figure 3b
+```{r Figure 3b}
+figure_3b <- qPCR_data %>% 
+  plotqPCR(panel = "3B", 
+           normalizer = "Gapdh", 
+           ref_group = "Parental",
+           levels = c("Parental","shNf1","sgNf1","KrasG12V"), 
+           pvalue = T,
+           legend = "top", 
+           palette = "Set1", 
+           ylim = c(0,8))
+
+figure_3b
+```
+
+## Figure 3d
+```{r Figure 3d}
+figure_3d <- gsea_report_all_analysis %>%
+  filter(Analysis == "NSCs_Kras_sgFosl1") %>%
+  ggplot(aes(x = reorder(NAME,NES), y = NES)) +
+  geom_col(aes(fill = TYPE, color =`FDR.q.val`<0.05), width = 0.75) +
+  coord_flip() + xlab("") +
+  theme_cowplot() + theme(axis.text.y=element_text(size = 7)) +
+  scale_fill_manual(values = c("#F5AE26", "#EA549D")) +
+  scale_color_manual(values = c("gray","black"))
+
+figure_3d
+```
+
+## Figure 3e
+```{r Figure 3e}
+figure_3e <-  qPCR_data %>%
+  plotqPCR(panel = "3E", 
+           normalizer = "Gapdh", 
+           ref_group = "sgCtrl",
+           levels = c("sgCtrl","sgFosl1"), 
+           pvalue = T,
+           legend = "none", 
+           palette = black_red, 
+           ylim = c(0,1.5),
+           title = "MES genes")
+
+figure_3e
+```
+
+## Figure 3f
+```{r Figure 3f}
+figure_3f <- qPCR_data %>% 
+  filter(Gene != "Dll3") %>% 
+  plotqPCR(panel = "3F", 
+           normalizer = "Gapdh", 
+           ref_group = "sgCtrl",
+           levels = c("sgCtrl","sgFosl1"),
+           pvalue = T,
+           legend = "right", 
+           palette = black_red, ylim = c(0,10),
+           title = "PN genes")
+
+figure_3f
+```
+
+## Figure 2-figure supplement 3b (Figure S5b)
+```{r Figure 2-figure supplement 3b}
+figure_S5b_left <- qPCR_data %>%
+  filter(Cells == "BTSC 3021") %>% 
+  plotqPCR(panel = "S5B", 
+           normalizer = "18s", 
+           ref_group = "shCtrl_DMSO", 
+           levels = c("shCtrl_DMSO","shCtrl_GDC-0623",
+                      "shNF1_5_DMSO","shNF1_5_GDC-0623"),
+           pvalue = F,
+           legend = "right", 
+           palette = "Set1",
+           ylim = c(0,5),
+           title = "BTSC 3021")
+
+figure_S5b_right <- qPCR_data %>%
+  filter(Cells == "BTSC 3047") %>% 
+  plotqPCR(panel = "S5B", 
+           normalizer = "18s", 
+           ref_group = "shCtrl_DMSO", 
+           levels = c("shCtrl_DMSO","shCtrl_GDC-0623",
+                      "shNF1_5_DMSO","shNF1_5_GDC-0623"),
+           pvalue = F,
+           legend = "right", 
+           palette = "Set1",
+           ylim = c(0,3),
+           title = "BTSC 3047")
+
+figure_S5b <- ggarrange(figure_S5b_left,
+                        figure_S5b_right,
+                        common.legend = T, 
+                        ncol = 1)
+
+figure_S5b
+```
+
+## Figure 2-figure supplement 3d (Figure S5d)
+```{r Figure 2-figure supplement 3d}
+figure_S5d <- qPCR_data %>%
+  plotqPCR(panel = "S5D", normalizer = "Actin", 
+           ref_group = "Parental_DMSO", 
+           levels = c("Parental_DMSO","Parental_Trametinib","Parental_U0126",
+                      "shNf1_DMSO","shNf1_Trametinib","shNf1_U0126",
+                      "KrasG12V_DMSO","KrasG12V_Trametinib","KrasG12V_U0126"),
+           pvalue = F,legend = "top", palette = "Set1")
+
+figure_S5d
+```
+
+## Figure 2-figure supplement 3f (Figure S5f)
+```{r Figure 2-figure supplement 3f}
+figure_S5f <- gsea_report_all_analysis %>%
+  filter(Analysis == "NSCs_shNF1_sgFosl1") %>%
+  ggplot(aes(x = reorder(NAME,NES), y = NES)) +
+  geom_col(aes(fill = TYPE, color =`FDR.q.val`< 0.1), width = 0.75) +
+  coord_flip() + xlab("") +
+  theme_cowplot() + theme(axis.text.y=element_text(size = 7)) +
+  scale_fill_manual(values = c("#F5AE26", "#EA549D")) +
+  scale_color_manual(values = c("gray","black"))
+
+figure_S5f
+```
+
+## Figure 2-figure supplement 3g (Figure S5g)
+```{r Figure 2-figure supplement 3g}
+figure_S5g_left <- qPCR_data %>%
+  plotqPCR(panel = "S5G_left", normalizer = "Gapdh", 
+           ref_group = "sgCtrl", 
+           levels = c("sgCtrl","sgFosl1_1","sgFosl1_3"),
+           pvalue = F,
+           ylim = c(0,1.5),
+           legend = "right", 
+           palette = black_red_green,
+           title = "MES genes")
+
+figure_S5g_right <- qPCR_data %>%
+  plotqPCR(panel = "S5G_right", normalizer = "Gapdh", 
+           ref_group = "sgCtrl", 
+           levels = c("sgCtrl","sgFosl1_1","sgFosl1_3"),
+           pvalue = F,
+           ylim = c(0,4),
+           legend = "right", 
+           palette = black_red_green,
+           title = "PN genes")
+
+figure_S5g <- ggarrange(figure_S5g_left,
+                        figure_S5g_right,
+                        common.legend = T, 
+                        legend = "right",
+                        nrow = 1,widths = c(1.5,1))
+
+figure_S5g
+```
+
+## Figure 4a 
+```{r Figure 4a}
+ATACSeq_sample_cor <- getSampleCorrelation(Figure_4_data) 
+ATACSeq_cor_annotation <- as.data.frame(colData(Figure_4_data))[,c("depth", "gRNA")]
+ATACSeq_cor_colors <- list(gRNA = black_red_green)
+names(ATACSeq_cor_colors$gRNA) <- levels(factor(ATACSeq_cor_annotation$gRNA))
+
+figure_4a <- pheatmap(as.dist(ATACSeq_sample_cor), 
+                      annotation_row = ATACSeq_cor_annotation,
+                      annotation_colors = ATACSeq_cor_colors,
+                      clustering_distance_rows = as.dist(1-ATACSeq_sample_cor),
+                      clustering_distance_cols = as.dist(1-ATACSeq_sample_cor),
+                      silent = T)
+
+figure_4a
+```
+
+## Figure 4b 
+```{r Figure 4b}
+# Getting differential deviation between control and KO samples 
+difdev <- differentialDeviations(Figure_4_data, "Cell_type")
+
+difdev_sig <- difdev[difdev$p_value_adjusted < 0.05,]
+difdev_sig <- difdev_sig[order(difdev_sig$p_value_adjusted),]
+difdev_sig$TFs <- gsub(".*_", "", rownames(difdev_sig))
+
+#Plot tSNE maps based with samples clustered based on chromatin deviations
+set.seed(1234)
+tsne_results <- deviationsTsne(Figure_4_data, threshold = 3)
+tsne_plots <- plotDeviationsTsne2(Figure_4_data, 
+                                  tsne_results, 
+                                  annotation = head(difdev_sig$TFs,6), 
+                                  sample_column = "gRNA")
+
+#plot the top 5 differentially deviating motifs between Fosl1 WT and KO cells
+figure_4b <- ggarrange(tsne_plots[[1]]+ xlab(""),
+          tsne_plots[[2]]+ xlab("") + ylab(""),
+          tsne_plots[[3]]+ xlab("") + ylab(""),
+          tsne_plots[[4]],
+          tsne_plots[[5]]+ ylab(""),
+          tsne_plots[[6]]+ ylab(""),
+          widths = 80, heights = 80, ncol = 3, nrow = 2)
+
+figure_4b
+```
+
+## Figure 4c 
+```{r Figure 4c}
+# motifs with decreased accessibility upon Fosl1 KO
+KO_down <- figure_4C_data[figure_4C_data$zmean_diff < 0,]
+KO_down <- KO_down[order(KO_down$zmean_diff),]
+
+# motifs with increased accessibility upon Fosl1 KO
+KO_up <- figure_4C_data[figure_4C_data$zmean_diff > 0,]
+KO_up <- KO_up[order(-KO_up$zmean_diff),]
+
+figure_4c <-figure_4C_data %>% 
+  ggplot(aes(x = zmean_diff, y = -log10(p_value_adjusted),
+             labels=TFs, color = zmean_diff)) + 
+  geom_point(alpha = 0.5)+
+  geom_vline(xintercept = 0, colour="grey", linetype="dashed") +
+  geom_point(size = 1) +
+  scale_color_gradient2(name = "",
+                        mid = "lightgray", 
+                        low = "blue", 
+                        high = "red") +
+  ylim(0,8) + xlim(-19,19) + 
+  ggtitle("Fosl1 KO vs Ctrl") +
+  geom_text_repel(data          = head(KO_down,5), aes(label=TFs),
+                   size          = 3,
+                   box.padding   = 0.35,
+                   point.padding = 0.5,
+                   segment.size  = 0.2,
+                   force         = 60,
+                   segment.color = "grey50") +
+  geom_text_repel(data         = head(KO_up,5), aes(label=TFs),
+                   size          = 3,
+                   box.padding   = 0.35,
+                   point.padding = 0.5,
+                   segment.size  = 0.2,
+                   force         = 60,
+                   segment.color = "grey50") +
+  labs(x = "Bias corrected deviations", y = "-log10(padj)") +
+  theme_pubr(margin = T) + font_size +
+  theme(legend.position = c(0.8,0.8),legend.key.size = unit(0.75,"line"),
+        legend.direction = "horizontal", legend.text = element_text(size = 8))
+
+figure_4c
+```
+
+## Figure 4d 
+```{r Figure 4d}
+ego_down <- enrichGO(gene = as.vector(KO_down$TFs),
+                     OrgDb = 'org.Hs.eg.db',
+                     keyType = 'SYMBOL',
+                     pvalueCutoff= 0.01,
+                     maxGSSize = 500,
+                     pAdjustMethod = "BH",
+                     ont = "BP")
+
+ego_up <- enrichGO(gene = as.vector(KO_up$TFs),
+                   OrgDb = 'org.Hs.eg.db',
+                   keyType = 'SYMBOL',
+                   pvalueCutoff= 0.01,
+                   maxGSSize = 500,
+                   pAdjustMethod = "BH",
+                   ont = "BP")
+
+figure_4d <- emaplot(ego_down, showCategory=10, 
+                      pie_scale = 0.5,
+                      line_scale = 0.5,
+                      color = "p.adjust",
+                     text_size = 25) +
+  theme(text = element_text(size = 8)) +
+  ggtitle("GO pathways enriched \nin Fosl1-KO closed regions")
+
+figure_4d
+```
+
+## Figure 4e 
+```{r Figure 4e}
+figure_4e <-emaplot(ego_up, showCategory=10, 
+                     pie_scale=0.5,
+                     line_scale = 0.5,
+                     color = "p.adjust",
+                     text_size = 25) +
+  theme(text = element_text(size = 8)) +
+  ggtitle("GO pathways enriched \nin Fosl1-KO open regions")
+
+figure_4e
+```
+
+## Figure 4f 
+```{r Figure 4f}
+seqmonk_count <- figure_4F_data
+
+DE_probes <- data.frame(name = seqmonk_count$Feature,
+                        baseMean = rowMeans(seqmonk_count[16:27]),
+                        log2FoldChange = -seqmonk_count$Log2.Fold.Change..LIMMA.stats.p.1.0.after.correction.,
+                        padj = seqmonk_count$FDR..LIMMA.stats.p.1.0.after.correction.,
+                        stringsAsFactors = F)
+
+DE_probes <- arrange(DE_probes,-log2FoldChange)
+
+Wang_MES <- c(gene_signatures[["Wang_MES_2017"]])
+Wang_PN <- c(gene_signatures[["Wang_PN_2017"]])
+BTSC_MES <- subset(combo_eset_tT, logFC>0)$Gene.Symbol
+BTSC_NonMES <- subset(combo_eset_tT, logFC<0)$Gene.Symbol
+
+DE_probes <- DE_probes %>% 
+  mutate(Wang_2017 =  case_when(toupper(name) %in% Wang_MES ~ "MES",
+                            toupper(name) %in% Wang_PN ~ "PN",
+                            TRUE ~ "Other"),
+         Wang_2017 = factor(Wang_2017, 
+                            levels = c("MES","PN","Other")),
+         BTSCs_DE = case_when(toupper(name) %in% BTSC_MES ~ "MES",
+                            toupper(name) %in% BTSC_NonMES ~ "NonMES",
+                            TRUE ~ "Other"))
+
+figure_4f <- DE_probes %>% 
+  ggplot(aes(x=log2FoldChange, y = Wang_2017)) +
+  geom_density_ridges(aes(fill = Wang_2017),
+                      alpha = 0.7,
+                      scale = 1) +
+  xlim(-4,4) +
+  geom_vline(xintercept = c(-1,0,1),
+            linetype = "dashed", 
+            size = 0.25) +
+  scale_fill_manual(values = c("#F5AE26", "#EA549D","#4DAF4A")) +
+  theme_pubr(legend = "none") + font_size +
+  ggtitle("Wang_2017") +
+  rremove("ylab")
+
+figure_4f
+```
+
+## Figure 4g 
+```{r Figure 4g}
+figure_4g <- DE_probes %>% 
+  ggplot(aes(x=log2FoldChange, y = BTSCs_DE)) +
+  geom_density_ridges(aes(fill = BTSCs_DE),
+                      alpha = 0.7,
+                      scale = 1) +
+  xlim(-4,4) +
+  geom_vline(xintercept = c(-1,0,1),
+            linetype = "dashed", 
+            size = 0.25) +
+  scale_fill_manual(values = c("#F5AE26", "#EA549D","#4DAF4A")) +
+  theme_pubr(legend = "none") + font_size +
+  ggtitle("BTSC_DE") +
+  rremove("ylab") 
+
+figure_4g
+```
+
+## Figure 4h 
+```{r Figure 4h,fig.show = "hold", out.width = "50%"}
+figure_4h_left <- tracksPlot(figure_4F_data, 
+                             gene = "Bnc2",
+                             region.min = -120000, 
+                             region.max = 5000)
+
+figure_4h_right <- tracksPlot(figure_4F_data, 
+                              gene = "Sox11",
+                              bigwig.ymax = 50)
+
+```
+
+## Figure 5a
+```{r Figure 5a}
+mean_d1 <- figure_5A_data %>%
+  filter(day == "d1") %>% 
+  group_by(Sample, day) %>% 
+  summarise_all(mean) %>% 
+  dplyr::select(-day) %>% 
+  dplyr::rename(d1_mean = value)
+
+figure_5A_data <- full_join(figure_5A_data, mean_d1,"Sample") %>% 
+  mutate(value_norm = value/d1_mean)
+
+figure_5a <- figure_5A_data %>% 
+  ggline(x = "day", y = "value_norm", 
+  add = c("mean_sd", "jitter"), 
+  ylab = "Cell growth (A.U.)", 
+  add.params =list(size = 0.5),
+  color = "Sample", 
+  palette = black_red_green) + 
+  ylim(0,30) + font_size
+
+# # Two-way ANOVA
+# figure_5A_data %>%
+#   filter(Sample != "sgFosl1_1") %>% 
+#   aov(value_norm ~ Sample * day, data = .) %>% 
+#   summary()
+# 
+# figure_5A_data %>%
+#   filter(Sample != "sgFosl1_3") %>% 
+#   aov(value_norm ~ Sample * day, data = .) %>% 
+#   summary()
+
+figure_5a
+```
+
+## Figure 5b
+```{r Figure 5b}
+figure_5b <- figure_5B_data %>% 
+  ggbarplot(x = "Phase", y = "Percentage",
+  add = c("mean_sd", "jitter"), 
+  ylab = "% cell population",
+  position = position_dodge(0.8), 
+  color = "Sample", 
+  palette = black_red_green) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0,50)) 
+
+# figure_5B_data %>%
+#   compare_means(Percentage ~ Sample, ref.group = "sgCtrl", method = "t.test", 
+#                 symnum.args = symnum.args,data = ., group.by = "Phase")
+
+figure_5b
+```
+
+## Figure 5c
+```{r Figure 5c}
+
+elda_5C <- elda(response = figure_5C_data$Response, dose = figure_5C_data$Dose, 
+                tested = figure_5C_data$Tested,group = figure_5C_data$Group)
+
+# elda_bar(elda_5C,c("Black","Red"))
+
+figure_5c <- ggplotlimdil(elda_5C)
+# elda_5C # Pvalue for the limited dilution assay
+
+figure_5c
+```
+
+## Figure 5d
+```{r Figure 5d}
+QuantSeq_gset <- ExpressionSet(assayData = as.matrix(t(figure_5D_expr)),
+                               phenoData=as(figure_5D_pdata, 
+                                            "AnnotatedDataFrame"))
+col_annotation <- stem_diff_genes %>% 
+  dplyr::rename(Marker = Group) %>%
+  filter(., !Gene_symbol %in% c("Nanog","Sall4")) %>% # filter out genes with very low expr
+  mutate(Marker = as.factor(Marker)) # %>% column_to_rownames("Gene_symbol")
+
+QuantSeq_colors <- list(Marker = brewer.pal(9, "Set1")[3:6],
+                 sgRNA = c("#808080","#000000"))
+names(QuantSeq_colors$Marker) <- levels(col_annotation$Marker)
+names(QuantSeq_colors$sgRNA) <- levels(factor(pData(QuantSeq_gset)[,"sgRNA"]))
+
+figure_5d <- exprs(QuantSeq_gset[featureNames(QuantSeq_gset) %in% row.names(stem_diff_genes),]) %>% 
+  data.frame(.) %>% # reorder based on the order of stem_diff_genes
+  .[row.names(col_annotation),] %>% # reorder based on the order of stem_diff_genes
+  na.omit(.) %>% # Pou5f1 (Oct4) it's not expressed
+  pheatmap(., 
+           annotation_col = pData(QuantSeq_gset)[,"sgRNA",drop = F],
+           annotation_row = col_annotation[,"Marker", drop = F],
+           gaps_row=c(13,18,24), 
+           scale = "row", 
+           show_rownames = T, 
+           show_colnames = F,
+           fontsize_row = 8,
+           annotation_colors = QuantSeq_colors,
+           border_color = NA, 
+           cluster_rows = F,
+           cluster_cols = F,
+           annotation_legend = F,
+           color = colorRampPalette(c("steelblue","white","red"))(100),
+           silent = T) 
+
+figure_5d
+```
+
+## Figure 5e
+```{r Figure 5e}
+figure_5e <- figure_5E_data %>% 
+  ggplot(aes(x = sgRNA, y = norm_value, color = sgRNA)) +
+  geom_boxplot(outlier.size = 0, outlier.stroke = 0) +
+  geom_jitter(position = position_jitter(width = .25), 
+              size = 1, alpha = 0.5) + 
+  ylab("Fold change (A.U.)") + xlab("") + theme_bw() + 
+  facet_wrap(.~ Marker, scales = "free") +
+  theme(legend.position = "none",
+        axis.title.y = element_text(size = 10)) +
+  scale_color_manual(values = black_red_green) +
+  stat_compare_means(method = "t.test", 
+                     ref.group = "sgCtrl", 
+                     label = "p.signif",
+                     symnum.args = symnum.args)
+
+figure_5e
+```
+
+## Figure 5i
+```{r Figure 5i}
+figure_5i <-  qPCR_data %>%
+  plotqPCR(panel = "5I", 
+           normalizer = "Gapdh", 
+           ref_group = "sgCtrl-T4", 
+           levels = c("sgCtrl-T4","sgFosl1-T3","sgFosl1-T4"), 
+           pvalue = T,  
+           legend = "none", 
+           palette = black_red_green, 
+           ylim = c(0,1.5),
+           title = "MES genes")
+
+figure_5i
+```
+
+## Figure 5j
+```{r Figure 5j}
+figure_5j <- qPCR_data %>%
+  plotqPCR(panel = "5J", 
+           normalizer = "Gapdh", 
+           ref_group = "sgCtrl-T4", 
+           levels = c("sgCtrl-T4","sgFosl1-T3","sgFosl1-T4"), 
+           pvalue = T,
+           legend = "right", 
+           palette = black_red_green, 
+           ylim = c(0,50),
+           title = "PN genes")
+
+figure_5j
+```
+
+## Figure 5-figure supplement 1a (Figure S6a)
+```{r Figure 5-figure supplement 1a}
+cyclins <- c("Ccn1","Ccn2", "Ccn4", "Ccnb1", "Ccnb2","Ccnd2", "Ccne1","Ccne2","Cdk1")
+
+figure_S6a <- exprs(QuantSeq_gset[featureNames(QuantSeq_gset) %in% cyclins,]) %>%
+  data.frame(.) %>%  
+  .[cyclins,] %>% # reorder based on the order of cyclins
+  t(.) %>% 
+  pheatmap(., 
+           annotation_row = pData(QuantSeq_gset)[,"sgRNA",drop = F],
+           scale = "column", 
+           show_rownames = F, 
+           show_colnames = T,
+           fontsize_row = 8,
+           annotation_colors = QuantSeq_colors,
+           border_color = NA, 
+           cluster_rows = F,
+           cluster_cols = F,
+           annotation_legend = T,
+           color = colorRampPalette(c("steelblue","white","red"))(100),
+           silent = T) 
+
+figure_S6a
+```
+
+## Figure 6b
+```{r Figure 6b}
+figure_6b_left <- qPCR_data %>%
+  filter(Gene %in% c("Gapdh","Fosl1")) %>%
+  plotqPCR(panel = "6B", 
+           normalizer = "Gapdh", 
+           ref_group = "Mock", 
+           levels = c("Mock","Dox"), 
+           pvalue = T,
+           legend = "none", 
+           palette = gray_black, 
+           ylim=c(0,200),
+           title = "MES genes")
+
+figure_6b_right <- qPCR_data %>%
+  filter(Gene!= "Fosl1") %>%
+  plotqPCR(panel = "6B",
+           normalizer = "Gapdh", 
+           ref_group = "Mock", 
+           levels = c("Mock","Dox"),
+           pvalue = T, ylab = FALSE,
+           legend = "none", 
+           palette = gray_black, 
+           ylim=c(0,15),
+           title = " ") 
+
+figure_6b <- plot_grid(figure_6b_left,
+                       figure_6b_right,
+                       rel_widths = c(0.3,1))
+
+figure_6b
+```
+
+## Figure 6c
+```{r Figure 6c}
+figure_6c <- qPCR_data %>%
+  plotqPCR(panel = "6C", 
+           normalizer = "Gapdh", 
+           ref_group = "Mock",
+           levels = c("Mock","Dox"), 
+           pvalue = T, 
+           legend = "right", 
+           palette = gray_black, 
+           ylim=c(0,1.5),
+           title = "PN genes") 
+
+figure_6c
+```
+
+## Figure 6d
+```{r Figure 6d}
+figure_6d <- figure_6D_data %>% 
+  ggplot(aes(x = Group, y = Area_scaled, color = Group)) +
+  geom_boxplot(outlier.size = 0, outlier.stroke = 0) +
+  geom_jitter(position = position_jitter(width = .25), size = 1) + 
+  ylab("Tumor Area") + xlab("") + theme_bw() + ylim(0,2.8) +
+  theme(legend.position = "none",  axis.title.y = element_text(size = 10)) +
+  scale_color_manual(values = c("#A6CEE3", "#1F78B4")) +
+  stat_compare_means(method = "t.test", ref.group = "Mock", 
+                     label = "p.format", symnum.args = symnum.args)
+
+figure_6d
+```
+
+## Figure 6f
+```{r Figure 6f}
+figure_6f_left <- qPCR_data %>%
+  filter(Gene %in% c("Gapdh","Fosl1")) %>%
+  plotqPCR(panel = "6F", 
+           normalizer = "Gapdh", 
+           ref_group = "Mock", 
+           levels = c("Mock","Dox"), 
+           pvalue = T,
+           legend = "none",
+           palette = c("#A6CEE3", "#1F78B4"), 
+           ylim=c(0,40),
+           title = "MES genes")
+
+figure_6f_right <- qPCR_data %>%
+  filter(Gene!= "Fosl1") %>%
+  plotqPCR(panel = "6F", 
+           normalizer = "Gapdh", 
+           ref_group = "Mock", 
+           levels = c("Mock","Dox"), 
+           pvalue = T, ylab = FALSE,
+           legend = "none", 
+           palette = c("#A6CEE3", "#1F78B4"), 
+           ylim=c(0,6),
+           title = " ") 
+
+figure_6f <- plot_grid(figure_6f_left,
+                       figure_6f_right,
+                       rel_widths = c(0.3,1))
+
+figure_6f
+```
+
+## Figure 6g
+```{r Figure 6g}
+figure_6g <- qPCR_data %>%
+  plotqPCR(panel = "6G", 
+           normalizer = "Gapdh", 
+           ref_group = "Mock",
+           levels = c("Mock","Dox"), 
+           pvalue = T, 
+           legend = "right", 
+           palette = c("#A6CEE3", "#1F78B4"), 
+           ylim=c(0,2),
+           title = "PN genes") 
+
+figure_6g
+```
+
+## Figure 6i
+```{r Figure 6i}
+figure_6i <- qPCR_data %>%
+  plotqPCR(panel = "6I", 
+           normalizer = "Gapdh", 
+           ref_group = "Dox", 
+           levels = c("Dox","Mock"), 
+           pvalue = T,
+           legend = "none", 
+           palette = c("#E31A1C","#FB9A99"), 
+           ylim=c(0,2.5),
+           title = "MES genes")
+
+figure_6i
+```
+
+## Figure 6j
+```{r Figure 6j}
+figure_6j <- qPCR_data %>%
+  plotqPCR(panel = "6J", 
+           normalizer = "Gapdh", 
+           ref_group = "Dox",
+           levels = c("Dox","Mock"), 
+           pvalue = T, 
+           legend = "right", 
+           palette = c("#E31A1C","#FB9A99"), 
+           ylim=c(0,10),
+           title = "PN genes") 
+
+figure_6j
+```
+
+## Figure 7c
+```{r Figure 7c}
+mean_7C_d1 <- figure_7C_data %>%
+  filter(day == "d1") %>% 
+  group_by(Sample, Treatment, day) %>% 
+  summarise_all(mean) %>% 
+  dplyr::select(-day) %>% 
+  dplyr::rename(d1_mean = value)
+
+figure_7C_data_norm <- full_join(figure_7C_data, mean_7C_d1, 
+                            by = c("Sample", "Treatment")) %>% 
+  mutate(value_norm = value/d1_mean,
+         Sample_treatment = paste(Sample, Treatment, sep = ""))
+
+figure_7c <- figure_7C_data_norm %>% 
+  ggline(x = "day", y = "value_norm", 
+  add = c("mean_sd", "jitter"), 
+  ylab = "Cell growth (A.U.)", 
+  add.params =list(size = 1),
+  color = "Sample_treatment", 
+  palette = "Paired") +
+  theme(legend.position = c(.05, .95), 
+        legend.justification = c("left", "top")) + 
+  font_size
+
+# figure_7C_data_norm %>% 
+#   filter(Sample == "shFOSL1_10") %>% 
+#   aov(value_norm ~ Treatment + day, data = .) %>%
+#   summary()
+# 
+# figure_7C_data_norm %>% 
+#   filter(Sample == "shFOSL1_3") %>% 
+#   aov(value_norm ~ Treatment + day, data = .) %>%
+#   summary()
+
+# figure_7C_data_norm %>%
+#   compare_means(value_norm ~ Treatment,
+#                 group1 = "Mock",
+#                 group2 = "Dox",
+#                 method = "anova",
+#                 symnum.args = symnum.args,data = .,
+#                 group.by = "Sample")
+
+figure_7c
+```
+
+## Figure 7d
+```{r Figure 7d}
+figure_7d <- figure_7D_data %>% 
+  mutate(Sample = factor(Sample, 
+                         levels = c("shGFP", "shFOSL1_3","shFOSL1_10")),
+         Sample_treatment = paste(Sample, Treatment, sep = "")) %>% 
+  ggbarplot(x = "Sample", 
+            y = "BrdU", 
+            position = position_dodge(0.8), 
+            add = c("mean_sd", "jitter"), 
+            ylab = "% BrdU+ cells",
+            color = "Sample_treatment", 
+            palette = "Paired", legend = "none") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0,40)) + font_size 
+
+# figure_7D_data %>%
+#   compare_means(BrdU ~ Treatment,
+#                 ref.group = "-Dox",
+#                 method = "t.test",
+#                 symnum.args = symnum.args,data = .,
+#                 group.by = "Sample", var.equal = T)
+
+# figure_7D_data %>%
+#   compare_means(BrdU ~ Treatment, group1 = "-Dox", group2 = "+Dox", method = "anova",
+#                 symnum.args = symnum.args,data = ., group.by = "Sample")
+
+figure_7d
+```
+
+## Figure 7e
+```{r Figure 7e}
+
+elda_7e_gfp <- figure_7E_data %>% 
+  filter(shRNA =="shGFP") %>% 
+  with(.,  elda(response = Response, 
+                dose = Dose, 
+                tested = Tested, 
+                group = Group))
+
+elda_7e_FOSL1_3 <- figure_7E_data %>% 
+  filter(shRNA =="shFOSL1_3") %>% 
+  with(.,  elda(response = Response, 
+                dose = Dose, 
+                tested = Tested, 
+                group = Group))
+
+elda_7e_FOSL1_10 <- figure_7E_data %>% 
+  filter(shRNA =="shFOSL1_10") %>% 
+  with(.,  elda(response = Response, 
+                dose = Dose,
+                tested = Tested, 
+                group = Group))
+
+# elda_7e_gfp; elda_7e_FOSL1_3; elda_7e_FOSL1_10 # Pvalue for the limited dilution assay
+
+# elda_bar(elda_7e_gfp, brewer.pal(6,"Paired")[5:6])
+# elda_bar(elda_7e_FOSL1_3, brewer.pal(6,"Paired")[3:4])
+# elda_bar(elda_7e_FOSL1_10, brewer.pal(6,"Paired")[1:2])
+#   
+
+figure_7e <- plot_grid(ggplotlimdil(elda_7e_gfp,
+                                    col.group = brewer.pal(6,"Paired")[5:6]) + 
+                         font_size,
+                       ggplotlimdil(elda_7e_FOSL1_3, 
+                                    col.group = brewer.pal(6,"Paired")[3:4]) + 
+                         font_size,
+                       ggplotlimdil(elda_7e_FOSL1_10, 
+                                    col.group = brewer.pal(6,"Paired")[1:2]) + 
+                         font_size, 
+                       nrow = 1)
+
+figure_7e
+```
+
+## Figure 7f
+```{r Figure 7f}
+#PCA
+pc  <-  prcomp(t(figure_7F_data[,-c(1:12)]))
+pc_matrix <- data.frame(pc$x)
+percentage <- round(pc$sdev^2/ sum(pc$sdev^2) * 100, 2)
+percentage <- paste(colnames(pc_matrix), "(",
+                    paste(as.character(percentage), "%", ")", sep=""),sep = "")
+pc_matrix$Group <- figure_7F_annotation$Group
+
+figure_7f <- pc_matrix %>%
+    ggscatter(x = "PC1", y = "PC2", 
+             size = 1.5,
+             color = "Group",
+             palette = c("orange","maroon1"), 
+             ellipse = F,
+             xlab = percentage[1],
+             ylab = percentage[2],
+             legend = c(0.8,0.25)) +
+  font_size
+
+figure_7f
+```
+
+## Figure 7g
+```{r Figure 7g}
+# BTSC_MES_probes <- figure_7G_data %>% 
+#   filter(Feature %in% BTSC_MES) %>% 
+#   arrange(-Log2.Fold.Change)
+
+# Wang_MES_probes <- figure_7G_data %>% 
+#   filter(Feature %in% Wang_MES) %>% 
+#   arrange(-Log2.Fold.Change)
+
+#Volcano plot
+figure_7g <- figure_7G_data %>%
+    mutate(Fold_group = case_when(Log2.Fold.Change > 2 ~ "Lfc>",
+                                Log2.Fold.Change < -2 ~ "Lfc<-",
+                                TRUE ~ "Lfc")) %>% 
+    ggplot(aes(x = Log2.Fold.Change, y = -log10(P.value))) + 
+    geom_point(aes(col = Fold_group),size = 0.01, alpha = 0.5) +
+    scale_color_manual(values = c("gray","steelblue","red")) +
+    xlim(-5.5,5.5) + ylim(0,45) +
+    geom_vline(xintercept = 0, colour="grey", linetype="dashed") +
+    theme_pubr(legend = "none") + font_size +  
+    ggtitle("MES vs Non-MES") 
+
+figure_7g
+```
+
+## Figure 7j
+```{r Figure 7j}
+figure_7j <- qPCR_data %>% 
+    plotChIP(panel = "7J", 
+             ref_group = "IgG", 
+             levels = c("IgG","FRA1"),
+             palette = gray_black, 
+             pvalue =T, 
+             ylim=c(0,0.03), 
+             pvalues_y = 0.028) 
+
+figure_7j
+```
+
+## Figure 7-figure supplement 1b (Figure S8b)
+```{r Figure 7-figure supplement 1b}
+mean_S8B_d1 <- figure_S8B_data %>%
+  filter(day == "d1") %>% 
+  group_by(Sample, Treatment, day) %>% 
+  summarise_all(mean) %>% 
+  dplyr::select(-day) %>% 
+  dplyr::rename(d1_mean = value)
+
+figure_S8B_data_norm <- full_join(figure_S8B_data,mean_S8B_d1, 
+                             by = c("Sample", "Treatment")) %>% 
+  mutate(value_norm = value/d1_mean,
+         Sample_treatment = paste(Sample, Treatment, sep = " "))
+
+# figure_S8B_data_norm %>% 
+#   filter(Sample == "shFOSL1_3") %>% 
+#   aov(value_norm ~ Treatment * day, data = .) %>%
+#   summary()
+
+figure_S8b <- figure_S8B_data_norm %>% 
+  ggline(x = "day", y = "value_norm",
+         add = c("mean_sd", "jitter"), 
+         ylab = "Cell growth (A.U.)",
+         add.params =list(size = 1),
+         color = "Sample_treatment", 
+         palette = "Paired")
+
+figure_S8b
+```
+
+## Figure 7-figure supplement 1c (Figure S8c)
+```{r Figure 7-figure supplement 1c}
+figure_S8c <- figure_S8C_data %>% 
+  mutate(Sample = factor(Sample, levels = c("shGFP", "shFOSL1_3")),
+         Sample_treatment = paste(Sample, Treatment, sep = "")) %>% 
+  ggbarplot(x = "Sample", y = "BrdU", 
+            position = position_dodge(0.8), 
+            add = c("mean_sd", "jitter"), 
+            ylab = "% BrdU+ cells",
+            color = "Sample_treatment", 
+            palette = "Paired", 
+            legend = "none") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0,25))
+
+# figure_S8C_data %>% 
+#   compare_means(BrdU ~ Treatment, group1 = "Mock", group2 = "Dox", method = "anova",
+#                 symnum.args = symnum.args,data = ., group.by = "Sample")
+
+# figure_S8C_data %>%
+#   compare_means(BrdU ~ Treatment, ref.group = "Mock", method = "t.test",
+#                 symnum.args = symnum.args,data = ., group.by = "Sample", alternative = "less", var.equal = T)
+
+figure_S8c
+```
+
+## Figure 7-figure supplement 1d (Figure S8d)
+```{r Figure 7-figure supplement 1d}
+elda_S8d <- elda(response = figure_S8D_data$Response, 
+                 dose = figure_S8D_data$Dose,
+                 tested = figure_S8D_data$Tested,
+                 group = figure_S8D_data$Group)
+
+figure_S8d <- ggplotlimdil(elda_S8d, 
+                           col.group = brewer.pal(6,"Paired")[1:2]) +
+  font_size
+
+# elda_bar(elda_S8d, brewer.pal(6,"Paired")[1:2])
+
+# elda_S8d # Pvalue for the limited dilution assay
+
+figure_S8d
+```
+
+## Figure 7-figure supplement 1e (Figure S8e)
+```{r Figure 7-figure supplement 1e}
+figure_S8e_left <- qPCR_data %>%
+  plotqPCR(panel = "S8E_left", 
+           normalizer = "GAPDH", 
+           ref_group = "Mock", 
+           levels = c("Mock","Dox"),
+           pvalue = T, 
+           title = "MES genes",
+           legend = "none", 
+           palette = c("#A6CEE3", "#1F78B4"), 
+           ylim=c(0,2)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+figure_S8e_right <- qPCR_data %>%
+  plotqPCR(panel = "S8E_right", 
+           normalizer = "GAPDH", 
+           ref_group = "Mock", 
+           levels = c("Mock","Dox"), 
+           pvalue = T, 
+           title = "PN genes", 
+           ylab = FALSE,
+           legend = "right", 
+           palette = c("#A6CEE3", "#1F78B4"), 
+           ylim=c(0,4), pvalues_y = 3.7) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+figure_S8e <- plot_grid(figure_S8e_left,
+                        figure_S8e_right, 
+                        rel_widths = c(1.2,0.75), 
+                        align = "h")
+
+figure_S8e
+```
+
+## Figure 7-figure supplement 1f (Figure S8g)
+```{r Figure 7-figure supplement 1g}
+mean_S8G_d1 <- figure_S8G_data %>%
+  filter(day == "d1") %>% 
+  group_by(Sample, Treatment, day) %>% 
+  summarise_all(mean) %>% 
+  dplyr::select(-day) %>% 
+  dplyr::rename(d1_mean = value)
+
+figure_S8G_data_norm <- full_join(figure_S8G_data,mean_S8G_d1, 
+                             by = c("Sample", "Treatment")) %>% 
+  mutate(value_norm = value/d1_mean,
+         Sample_treatment = paste(Sample, Treatment, sep = " "))
+
+# figure_S8G_data_norm %>%
+#   filter(Sample == "shGFP") %>%
+#   aov(value_norm ~ Treatment * day, data = .) %>%
+#   summary()
+
+figure_S8g <- figure_S8G_data_norm %>% 
+  ggline(x = "day", y = "value_norm",
+         add = c("mean_sd", "jitter"), 
+         ylab = "Cell growth (A.U.)",
+         add.params =list(size = 1),
+         color = "Sample_treatment", 
+         palette = "Paired",
+         legend = "right") 
+
+figure_S8g
+```
+
+## Figure 7-figure supplement 1i (Figure S8i)
+```{r Figure 7-figure supplement 1i}
+mean_S8I_d1 <- figure_S8I_data %>%
+  filter(day == "d1") %>%
+  group_by(Cell_line, Group, day) %>%
+  summarise_all(mean) %>%
+  dplyr::select(-day) %>%
+  dplyr::rename(d1_mean = value)
+
+figure_S8I_data_norm <- full_join(figure_S8I_data,
+                                  mean_S8I_d1, 
+                                  by = c("Cell_line", "Group")) %>%
+  mutate(value_norm = value/d1_mean)
+
+figure_S8i <- figure_S8I_data_norm %>%
+  ggline(x = "day", y = "value_norm", 
+         facet.by = "Cell_line",
+         add = c("mean_sd", "jitter"), 
+         ylab = "Cell growth (A.U.)", 
+         add.params =list(size = 1),
+         color = "Group", 
+         palette = "Set1", 
+         legend = "right")
+
+figure_S8i
+```
+
+## Figure 7-figure supplement 1k (Figure S8k)
+```{r Figure 7-figure supplement 1k}
+mean_S8K_d1 <- figure_S8K_data %>%
+  filter(day == "d1") %>% 
+  group_by(Cell_line, Sample, Treatment, day) %>% 
+  summarise_all(mean) %>% 
+  dplyr::select(-day) %>% 
+  dplyr::rename(d1_mean = value)
+
+figure_S8K_data_norm <- full_join(figure_S8K_data, mean_S8K_d1, 
+                             by = c("Cell_line","Sample", "Treatment")) %>% 
+  mutate(value_norm = value/d1_mean,
+         Sample_treatment = paste(Sample, Treatment, sep = " "))
+
+figure_S8k <- figure_S8K_data_norm %>% 
+  ggline(x = "day", y = "value_norm",
+         add = c("mean_sd", "jitter"),
+         facet.by = "Cell_line",
+         ylab = "Cell growth (A.U.)",
+         add.params =list(size = 1),
+         color = "Sample_treatment", 
+         palette = "Paired",
+         legend = "right") 
+
+# figure_S8K_data_norm %>%
+#   filter("Cell_line" == "h543" & Sample == "shGFP") %>%
+#   aov(value_norm ~ Treatment * day, data = .) %>%
+#   summary()
+
+figure_S8k
+```
+
+Session info
+```{r, echo=FALSE}
+devtools::session_info()
+```

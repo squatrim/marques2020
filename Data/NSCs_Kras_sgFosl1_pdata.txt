@@ -1,0 +1,5 @@
+"Sample"	"Replicate"	"Condition"	"sgRNA"
+"sgFosl1_Rep1"	"sgFosl1_Rep1"	"Rep1"	"NS"	"Fosl1_1"
+"sgFosl1_Rep2"	"sgFosl1_Rep2"	"Rep2"	"NS"	"Fosl1_1"
+"sgCtrl_Rep1"	"sgCtrl_Rep1"	"Rep1"	"NS"	"Ctrl"
+"sgCtrl_Rep2"	"sgCtrl_Rep2"	"Rep2"	"NS"	"Ctrl"

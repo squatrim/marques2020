@@ -1,0 +1,13 @@
+Sample	Treatment	BrdU
+shGFP	-Dox	19.8
+shGFP	-Dox	19.2
+shGFP	-Dox	19.5
+shGFP	+Dox	17.1
+shGFP	+Dox	18.6
+shGFP	+Dox	19
+shFOSL1_3	-Dox	16.8
+shFOSL1_3	-Dox	17.9
+shFOSL1_3	-Dox	15.2
+shFOSL1_3	+Dox	7.67
+shFOSL1_3	+Dox	8.09
+shFOSL1_3	+Dox	8.34

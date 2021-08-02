@@ -1,0 +1,33 @@
+producer_class	xtools.gsea.Gsea
+producer_timestamp	1557494919416
+param	collapse	false
+param	cls	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/cls/NF1_GRD_phenotype.cls#GRD_versus_Ctrl
+param	plot_top_x	20
+param	norm	meandiv
+param	save_rnd_lists	false
+param	median	false
+param	num	100
+param	scoring_scheme	weighted
+param	make_sets	true
+param	mode	Max_probe
+param	gmx	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/gmx/FOSL1_target.gmx,/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/gmx/hras oncogenic signature.gmx,/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/gmx/verhaak_phillips_subtypes.gmx
+param	gui	false
+param	metric	Signal2Noise
+param	rpt_label	Freiburg_BTSC233_NF1_GRD
+param	help	false
+param	order	descending
+param	out	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/Results
+param	create_svgs	false
+param	permute	gene_set
+param	rnd_type	no_balance
+param	set_min	15
+param	include_only_symbols	true
+param	sort	real
+param	create_gcts	false
+param	rnd_seed	1556546186193
+param	nperm	1000
+param	zip_report	false
+param	set_max	500
+param	res	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/gct/NF1_GRD_exprs.gct
+
+file	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/Results/Freiburg_BTSC233_NF1_GRD.Gsea.1557494919416/index.html

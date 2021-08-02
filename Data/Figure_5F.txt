@@ -1,0 +1,16 @@
+Mouse_ID	days	group	status	gender
+KCN00576	31	sgCtrl	1	female
+KCN00583	40	sgCtrl	1	male
+KCN00584	37	sgCtrl	1	female
+KCN00585	31	sgFra1_1	1	female
+KCN00590	46	sgFra1_1	1	male
+KCN00592	37	sgCtrl	1	male
+KCN00593	49	sgCtrl	1	female
+KCN00605	37	sgCtrl	1	female
+KCN00606	55	sgCtrl	1	female
+KCN00624	37	sgCtrl	1	female
+KCN00625	44	sgCtrl	1	female
+KCN00604	50	sgFra1_1	1	female
+KCN00611	59	sgFra1_1	1	female
+KCN00612	62	sgFra1_1	1	female
+KCN00613	69	sgFra1_1	1	female

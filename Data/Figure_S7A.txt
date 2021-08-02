@@ -1,0 +1,25 @@
+Mouse_ID	days	group	status	gender
+XBH26441	149	no DOX	1	female
+XBH26442	77	no DOX	1	female
+XBH26443	94	no DOX	1	female
+XBH26444	68	no DOX	1	female
+XBH26445	68	no DOX	1	female
+XBH26446	79	no DOX	1	female
+XBH26447	141	no DOX	1	female
+XBH26448	117	no DOX	1	female
+XBH26449	47	DOX	1	female
+XBH26450	141	DOX	1	female
+XBH26451	86	DOX	1	female
+XBH26452	149	DOX	1	female
+XBH26453	120	DOX	1	female
+XBH26454	56	DOX	1	female
+XBH26455	68	DOX	1	female
+XBH26456	72	DOX	1	female
+				
+				
+				
+				
+				
+				
+				
+				

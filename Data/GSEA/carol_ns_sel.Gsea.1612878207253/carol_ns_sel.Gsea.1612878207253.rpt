@@ -1,0 +1,33 @@
+producer_class	xtools.gsea.Gsea
+producer_timestamp	1612878207253
+param	collapse	No_Collapse
+param	cls	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/cls/ranaseq_carol_ns_sel_phenotype.cls#Fosl1_1_versus_Ctrl
+param	plot_top_x	20
+param	norm	meandiv
+param	save_rnd_lists	false
+param	median	false
+param	num	100
+param	scoring_scheme	weighted
+param	make_sets	true
+param	mode	Max_probe
+param	gmx	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/gmx/gene_signatures_2021.gmx
+param	gui	false
+param	metric	Signal2Noise
+param	rpt_label	carol_ns_sel
+param	help	false
+param	order	descending
+param	out	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/Results/2021
+param	create_svgs	false
+param	permute	gene_set
+param	rnd_type	no_balance
+param	set_min	15
+param	include_only_symbols	true
+param	sort	real
+param	create_gcts	false
+param	rnd_seed	timestamp
+param	nperm	1000
+param	zip_report	false
+param	set_max	5000
+param	res	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/gct/ranaseq_carol_ns_sel_exprs.gct
+
+file	/Users/msquatrito/Desktop/R/FOSL1_manuscript/GSEA/Results/2021/carol_ns_sel.Gsea.1612878207253/index.html
